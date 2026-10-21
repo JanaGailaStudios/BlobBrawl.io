@@ -1,0 +1,8 @@
+node_modules
+data
+.git
+.gitignore
+.env
+test
+docs
+*.md

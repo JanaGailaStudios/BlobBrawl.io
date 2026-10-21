@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0f1a" />
+<meta name="description" content="BlobBrawl.io — a fast, real-time multiplayer blob arena. Eat orbs, grow huge, and swallow everyone else." />
+<title>BlobBrawl.io — Real-time blob arena</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<div id="app">
+  <canvas id="gameCanvas" aria-hidden="true"></canvas>
+  <div id="worldGlow" aria-hidden="true"></div>
+
+  <!-- ============================ IN-GAME HUD ============================ -->
+  <div id="hud" class="hidden" aria-live="off">
+    <div class="hud-top-left panel hud-vitals">
+      <div class="hud-stat"><span class="label">Size</span><strong id="hudSize">100</strong></div>
+      <div class="hud-stat"><span class="label">Score</span><strong id="hudScore">1,000</strong></div>
+      <div class="hud-stat"><span class="label">Kills</span><strong id="hudKills">0</strong></div>
+      <div class="hud-stat"><span class="label">Survived</span><strong id="hudTime">0:00</strong></div>
+    </div>
+
+    <div class="hud-top-center">
+      <div id="killFeed" class="kill-feed"></div>
+      <div id="announce" class="announce"></div>
+    </div>
+
+    <div class="hud-top-right">
+      <button id="btnMinimap" class="panel minimap-wrap" type="button" aria-label="Toggle minimap">
+        <canvas id="minimap" width="180" height="180"></canvas>
+        <span id="roomLabel" class="room-label">Arena</span>
+      </button>
+      <div id="connBadge" class="conn-badge good"><i></i><span>Live</span></div>
+    </div>
+
+    <div id="leaderboardPanel" class="panel hud-board">
+      <div class="board-head"><h3>Arena Top</h3><span id="arenaPill" class="pill">1 blob</span></div>
+      <ol id="leaderboardList" class="board-list"></ol>
+      <div class="board-foot"><span id="arenaCount">1 blob</span><span id="arenaName">live</span></div>
+    </div>
+
+    <div class="hud-bottom-center">
+      <div id="boostMeter" class="boost-meter">
+        <div id="boostFill" class="boost-fill"></div>
+        <span id="boostLabel">BOOST</span>
+      </div>
+      <div class="hint" id="hudHint">Move with your mouse · hold <kbd>Space</kbd> or click to boost</div>
+    </div>
+
+    <div id="mobileControls" class="mobile-controls" aria-hidden="true">
+      <div id="joystick" class="joystick"><div id="joystickKnob" class="knob"></div></div>
+      <button id="mobileBoost" class="mobile-boost" type="button">BOOST</button>
+    </div>
+  </div>
+
+  <!-- ============================ BOOT SCREEN ============================ -->
+  <section id="bootScreen" class="screen boot-screen">
+    <div class="boot-inner">
+      <div class="logo big"><span class="logo-blob"></span>Blob<span class="accent">Brawl</span><span class="tld">.io</span></div>
+      <p id="bootStatus" class="boot-status">Connecting to the arena…</p>
+      <div class="boot-bar"><span id="bootBarFill"></span></div>
+      <button id="bootRetry" class="btn primary hidden" type="button">Retry connection</button>
+      <p class="boot-foot">Server-authoritative multiplayer · no download</p>
+    </div>
+  </section>
+
+  <!-- ============================== MAIN MENU ============================= -->
+  <section id="menuScreen" class="screen menu-screen hidden">
+    <header class="topbar">
+      <div class="logo"><span class="logo-blob"></span>Blob<span class="accent">Brawl</span><span class="tld">.io</span></div>
+      <nav class="topnav">
+        <button class="nav-btn" data-open="shop" type="button"><span class="nav-ico">🛍️</span>Shop</button>
+        <button class="nav-btn" data-open="profile" type="button"><span class="nav-ico">👤</span>Profile</button>
+        <button class="nav-btn" data-open="board" type="button"><span class="nav-ico">🏆</span>Ranks</button>
+        <button class="nav-btn" data-open="settings" type="button"><span class="nav-ico">⚙️</span>Settings</button>
+        <button class="nav-btn icon-only" id="btnSoundToggle" type="button" aria-label="Toggle sound" title="Toggle sound">🔊</button>
+      </nav>
+    </header>
+
+    <div class="menu-grid">
+      <div class="menu-main">
+        <div class="hero card">
+          <div class="hero-copy">
+            <span class="eyebrow">Real-time multiplayer arena</span>
+            <h1>Eat. Grow.<br /><span class="grad-text">Swallow everything.</span></h1>
+            <p class="sub">Glowing orbs make you bigger. Bigger blobs eat smaller ones. Stay alive long enough and the whole arena is your snack.</p>
+            <div class="player-row">
+              <label class="name-field">
+                <span>Your name</span>
+                <input id="playerNameInput" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Enter a name" />
+              </label>
+              <div class="skin-mini" id="menuSkinMini" title="Selected skin">
+                <div class="blob-preview" data-skin="bubblegum"></div>
+              </div>
+            </div>
+            <div class="cta-row">
+              <button id="btnPlay" class="btn primary huge" type="button">
+                <span class="play-ico">▶</span> Play now
+              </button>
+              <button id="btnCustomize" class="btn ghost" type="button">Customize</button>
+            </div>
+            <div class="menu-footnote">
+              <span class="dot-live"></span><span id="menuOnline">Connecting…</span>
+              <span class="sep">·</span><span id="menuRoomInfo">Matchmaking ready</span>
+            </div>
+          </div>
+          <div class="hero-art">
+            <canvas id="heroCanvas" width="380" height="380" aria-hidden="true"></canvas>
+            <div class="loadout-chips" id="loadoutChips"></div>
+          </div>
+        </div>
+
+        <div class="menu-columns">
+          <div class="card missions-card">
+            <div class="card-head">
+              <h2>Daily missions</h2>
+              <span class="pill" id="missionReset">Resets 00:00 UTC</span>
+            </div>
+            <div id="missionList" class="mission-list"></div>
+          </div>
+          <div class="card level-card">
+            <div class="card-head">
+              <h2>Your progress</h2>
+              <span class="pill" id="menuTier">Rookie</span>
+            </div>
+            <div class="level-head">
+              <div class="level-badge" id="menuLevelBadge">1</div>
+              <div class="level-info">
+                <strong id="menuLevelTitle">Level 1 Blob</strong>
+                <div class="xp-track"><span id="menuXpFill"></span></div>
+                <small id="menuXpText">0 / 100 XP</small>
+              </div>
+            </div>
+            <div class="mini-stats">
+              <div><strong id="menuKills">0</strong><span>Eliminations</span></div>
+              <div><strong id="menuWins">0</strong><span>#1 finishes</span></div>
+              <div><strong id="menuBest">0</strong><span>Best mass</span></div>
+              <div><strong id="menuCoins">0</strong><span>Coins</span></div>
+            </div>
+            <button class="btn soft wide" data-open="profile" type="button">View full profile</button>
+          </div>
+        </div>
+
+        <div class="card live-card">
+          <div class="card-head">
+            <h2>Arena top 5</h2>
+            <span class="pill live-pill"><span class="dot-live"></span> Live</span>
+          </div>
+          <ol id="menuLiveBoard" class="live-board"><li class="empty">Waiting for the arena to wake up…</li></ol>
+          <div class="howto">
+            <div class="howto-item"><b>1</b><span>Collect orbs to grow</span></div>
+            <div class="howto-item"><b>2</b><span>Be 18% bigger to eat</span></div>
+            <div class="howto-item"><b>3</b><span>Boost costs mass</span></div>
+            <div class="howto-item"><b>4</b><span>Respawn instantly</span></div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="menu-side">
+        <div class="card side-card">
+          <div class="card-head"><h2>Global ranks</h2><button class="btn link" data-open="board" type="button">All →</button></div>
+          <ol id="menuGlobalBoard" class="global-board"><li class="empty">No ranked blobs yet.</li></ol>
+        </div>
+        <div class="card side-card tips-card">
+          <div class="card-head"><h2>Pro tips</h2></div>
+          <ul class="tips">
+            <li><span>🫧</span>Cut off smaller blobs near the arena walls.</li>
+            <li><span>⚡</span>Boost is a weapon, not a habit — it burns 4.5% mass per second.</li>
+            <li><span>🧿</span>Hug the edge of a fight and clean up the winner.</li>
+            <li><span>🧠</span>Big blobs are slow. Small blobs can out-turn them.</li>
+          </ul>
+        </div>
+        <div class="card side-card account-card">
+          <div class="card-head"><h2>Account</h2></div>
+          <div class="account-row"><span>Status</span><b id="accountStatus">Connecting…</b></div>
+          <div class="account-row"><span>Rank</span><b id="accountRank">—</b></div>
+          <div class="account-row"><span>Playtime</span><b id="accountPlaytime">0m</b></div>
+          <button class="btn soft wide" data-open="settings" type="button">Settings &amp; accessibility</button>
+        </div>
+      </aside>
+    </div>
+    <footer class="menu-footer">
+      <span>BlobBrawl.io · server-authoritative multiplayer</span>
+      <span>WASD / mouse · Space / click to boost · play on any device</span>
+    </footer>
+  </section>
+
+  <!-- ================================= SHOP ============================== -->
+  <section id="shopScreen" class="screen sub-screen hidden">
+    <header class="topbar">
+      <button class="btn ghost back-btn" data-close="shop" type="button">← Back</button>
+      <div class="logo small"><span class="logo-blob"></span>Blob<span class="accent">Brawl</span><span class="tld">.io</span></div>
+      <div class="wallet"><span class="coin-ico">◉</span><strong id="shopCoins">0</strong><span>coins</span></div>
+    </header>
+    <div class="sub-inner">
+      <div class="sub-head">
+        <div>
+          <h1>Cosmetics shop</h1>
+          <p>Pure style. Zero stats. Every item is client-preview only and cannot change gameplay.</p>
+        </div>
+        <div class="tabs" id="shopTabs" role="tablist">
+          <button class="tab active" data-tab="skin" type="button" role="tab">Skins</button>
+          <button class="tab" data-tab="trail" type="button" role="tab">Trails</button>
+          <button class="tab" data-tab="effect" type="button" role="tab">Eliminations</button>
+        </div>
+      </div>
+      <div id="shopGrid" class="shop-grid"></div>
+      <div class="shop-note">
+        <span>💡</span>
+        <p>Coins are earned by playing — surviving, collecting orbs and eliminating rivals. Some legendary items only drop from great matches.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- =============================== PROFILE ============================= -->
+  <section id="profileScreen" class="screen sub-screen hidden">
+    <header class="topbar">
+      <button class="btn ghost back-btn" data-close="profile" type="button">← Back</button>
+      <div class="logo small"><span class="logo-blob"></span>Blob<span class="accent">Brawl</span><span class="tld">.io</span></div>
+      <div class="wallet"><span class="coin-ico">◉</span><strong id="profileCoins">0</strong><span>coins</span></div>
+    </header>
+    <div class="sub-inner profile-inner">
+      <div class="profile-hero card">
+        <div class="profile-avatar">
+          <div class="blob-preview large" id="profileBlob" data-skin="bubblegum"></div>
+          <button class="btn tiny soft" data-open="shop" type="button">Change skin</button>
+        </div>
+        <div class="profile-id">
+          <div class="title-row">
+            <h1 id="profileName">Blob</h1>
+            <span class="rank-badge" id="profileTier">Rookie</span>
+          </div>
+          <div class="level-head big">
+            <div class="level-badge" id="profileLevelBadge">1</div>
+            <div class="level-info">
+              <strong id="profileLevelTitle">Level 1</strong>
+              <div class="xp-track"><span id="profileXpFill"></span></div>
+              <small id="profileXpText">0 / 100 XP</small>
+            </div>
+          </div>
+          <div class="rating-row">
+            <div><strong id="profileRating">1000</strong><span>Arena rating</span></div>
+            <div><strong id="profileRank">#—</strong><span>Global position</span></div>
+            <div><strong id="profileBestRating">1000</strong><span>Peak rating</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="profile-grid">
+        <div class="card">
+          <div class="card-head"><h2>Career stats</h2></div>
+          <div class="stat-grid">
+            <div class="stat-box"><strong id="statKills">0</strong><span>Eliminations</span></div>
+            <div class="stat-box"><strong id="statDeaths">0</strong><span>Deaths</span></div>
+            <div class="stat-box"><strong id="statGames">0</strong><span>Matches</span></div>
+            <div class="stat-box"><strong id="statWins">0</strong><span>#1 finishes</span></div>
+            <div class="stat-box"><strong id="statOrbs">0</strong><span>Orbs eaten</span></div>
+            <div class="stat-box"><strong id="statBestMass">0</strong><span>Best mass</span></div>
+            <div class="stat-box"><strong id="statCoinsEarned">0</strong><span>Coins earned</span></div>
+            <div class="stat-box"><strong id="statPlaytime">0m</strong><span>Playtime</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Daily missions</h2><span class="pill">Resets 00:00 UTC</span></div>
+          <div id="profileMissions" class="mission-list"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Achievements</h2><span class="pill" id="achCount">0 / 0</span></div>
+        <div id="achievementGrid" class="achievement-grid"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Match history</h2><span class="pill">Server verified</span></div>
+        <div id="matchHistory" class="history-table"><p class="empty">Play a match to start your history.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== SETTINGS ============================= -->
+  <section id="settingsScreen" class="screen sub-screen hidden">
+    <header class="topbar">
+      <button class="btn ghost back-btn" data-close="settings" type="button">← Back</button>
+      <div class="logo small"><span class="logo-blob"></span>Blob<span class="accent">Brawl</span><span class="tld">.io</span></div>
+      <span class="pill">Saved to your profile</span>
+    </header>
+    <div class="sub-inner settings-inner">
+      <div class="settings-grid">
+        <div class="card">
+          <div class="card-head"><h2>Audio</h2></div>
+          <label class="setting-row">
+            <span><b>Sound effects</b><small>Eating, boosting, eliminations, UI</small></span>
+            <input type="checkbox" id="setSound" class="switch" checked />
+          </label>
+          <label class="setting-row">
+            <span><b>Music</b><small>Soft generated arena ambience</small></span>
+            <input type="checkbox" id="setMusic" class="switch" />
+          </label>
+          <label class="setting-row column">
+            <span><b>SFX volume</b><small id="sfxVolLabel">70%</small></span>
+            <input type="range" id="setSfxVolume" min="0" max="100" value="70" />
+          </label>
+          <label class="setting-row column">
+            <span><b>Music volume</b><small id="musicVolLabel">40%</small></span>
+            <input type="range" id="setMusicVolume" min="0" max="100" value="40" />
+          </label>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>Graphics</h2></div>
+          <label class="setting-row column">
+            <span><b>Quality</b><small>Particles, glow and effects</small></span>
+            <div class="segmented" id="qualityGroup">
+              <button type="button" data-q="low">Low</button>
+              <button type="button" data-q="medium">Medium</button>
+              <button type="button" data-q="high">High</button>
+            </div>
+          </label>
+          <label class="setting-row">
+            <span><b>Grid background</b><small>Subtle arena grid</small></span>
+            <input type="checkbox" id="setGrid" class="switch" checked />
+          </label>
+          <label class="setting-row">
+            <span><b>Player names</b><small>Show names above blobs</small></span>
+            <input type="checkbox" id="setNames" class="switch" checked />
+          </label>
+          <label class="setting-row">
+            <span><b>Screen shake</b><small>Impact feedback on eliminations</small></span>
+            <input type="checkbox" id="setShake" class="switch" checked />
+          </label>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>Controls</h2></div>
+          <label class="setting-row column">
+            <span><b>Movement</b><small>Mouse aiming, WASD, or both</small></span>
+            <div class="segmented" id="controlGroup">
+              <button type="button" data-c="mouse">Mouse</button>
+              <button type="button" data-c="keys">WASD</button>
+              <button type="button" data-c="both">Both</button>
+            </div>
+          </label>
+          <label class="setting-row">
+            <span><b>Boost behaviour</b><small>Hold or tap to toggle</small></span>
+            <div class="segmented small" id="boostGroup">
+              <button type="button" data-b="hold">Hold</button>
+              <button type="button" data-b="toggle">Toggle</button>
+            </div>
+          </label>
+          <div class="control-hints">
+            <div><kbd>Mouse</kbd><span>Steer toward cursor</span></div>
+            <div><kbd>W A S D</kbd><span>Move in a direction</span></div>
+            <div><kbd>Space</kbd><span>Speed boost</span></div>
+            <div><kbd>Click</kbd><span>Speed boost</span></div>
+            <div><kbd>Esc</kbd><span>Back to menu</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>Accessibility</h2></div>
+          <label class="setting-row">
+            <span><b>Reduced motion</b><small>Calmer particles and camera</small></span>
+            <input type="checkbox" id="setReduced" class="switch" />
+          </label>
+          <label class="setting-row">
+            <span><b>Colorblind patterns</b><small>Adds shapes to orbs and blobs</small></span>
+            <input type="checkbox" id="setColorblind" class="switch" />
+          </label>
+          <label class="setting-row">
+            <span><b>Larger interface</b><small>Bigger HUD text and buttons</small></span>
+            <input type="checkbox" id="setLargeUI" class="switch" />
+          </label>
+          <label class="setting-row">
+            <span><b>High contrast</b><small>Brighter outlines on everything</small></span>
+            <input type="checkbox" id="setContrast" class="switch" />
+          </label>
+        </div>
+      </div>
+      <div class="settings-footer">
+        <button class="btn soft" id="btnResetSettings" type="button">Reset to defaults</button>
+        <span class="muted">Settings sync to your account and follow you across devices.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ GLOBAL RANKS ========================== -->
+  <section id="boardScreen" class="screen sub-screen hidden">
+    <header class="topbar">
+      <button class="btn ghost back-btn" data-close="board" type="button">← Back</button>
+      <div class="logo small"><span class="logo-blob"></span>Blob<span class="accent">Brawl</span><span class="tld">.io</span></div>
+      <span class="pill" id="boardUpdated">Updated just now</span>
+    </header>
+    <div class="sub-inner">
+      <div class="sub-head">
+        <div>
+          <h1>Competitive ranks</h1>
+          <p>Rating changes after every life based on eliminations, orbs, survival and final placement.</p>
+        </div>
+        <div class="tabs" id="boardTabs">
+          <button class="tab active" data-kind="rating" type="button">Rating</button>
+          <button class="tab" data-kind="level" type="button">Level</button>
+          <button class="tab" data-kind="kills" type="button">Eliminations</button>
+        </div>
+      </div>
+      <div class="card rank-card">
+        <div id="boardList" class="rank-table"></div>
+      </div>
+      <div class="tier-strip" id="tierStrip"></div>
+    </div>
+  </section>
+
+  <!-- ============================= DEATH SCREEN ========================= -->
+  <section id="deathScreen" class="screen overlay hidden">
+    <div class="death-card card">
+      <span class="death-eyebrow" id="deathEyebrow">Eliminated</span>
+      <h1 id="deathTitle">You got eaten</h1>
+      <p class="death-sub" id="deathSub">A bigger blob had other plans.</p>
+
+      <div class="death-stats" id="deathStats"></div>
+
+      <div class="reward-panel">
+        <div class="reward-line">
+          <span class="reward-label">Match rewards</span>
+          <span class="reward-values">
+            <b class="coin">+<span id="deathCoins">0</span> <i class="coin-ico">◉</i></b>
+            <b class="xp">+<span id="deathXp">0</span> XP</b>
+            <b class="rating" id="deathRating">+0 rating</b>
+          </span>
+        </div>
+        <div class="xp-track death-xp"><span id="deathXpFill"></span></div>
+        <div class="death-level-row">
+          <span id="deathLevelText">Level 1</span>
+          <span id="deathLevelUp" class="level-up hidden">LEVEL UP!</span>
+        </div>
+      </div>
+
+      <div id="deathExtras" class="death-extras"></div>
+
+      <div class="death-actions">
+        <button id="btnRespawn" class="btn primary huge" type="button"><span class="play-ico">▶</span> Respawn now</button>
+        <button id="btnDeathMenu" class="btn ghost" type="button">Main menu</button>
+      </div>
+      <p class="death-tip" id="deathTip">Tip: boost only when you can finish a kill — it costs 4.5% of your mass every second.</p>
+    </div>
+  </section>
+
+  <!-- ============================ OVERLAY LAYERS ======================== -->
+  <div id="toastLayer" class="toast-layer" aria-live="polite"></div>
+  <div id="modalLayer" class="modal-layer hidden">
+    <div class="modal-card card" role="dialog" aria-modal="true">
+      <h2 id="modalTitle">Confirm</h2>
+      <p id="modalText">Are you sure?</p>
+      <div class="modal-actions">
+        <button class="btn ghost" id="modalCancel" type="button">Cancel</button>
+        <button class="btn primary" id="modalConfirm" type="button">Confirm</button>
+      </div>
+    </div>
+  </div>
+  <div id="connectionOverlay" class="connection-overlay hidden">
+    <div class="spinner"></div>
+    <strong>Reconnecting…</strong>
+    <span id="connectionDetail">Holding your blob on the field.</span>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/shared/catalog.js"></script>
+<script src="/shared/physics.js"></script>
+<script type="module" src="/js/main.js"></script>
+</body>
+</html>
