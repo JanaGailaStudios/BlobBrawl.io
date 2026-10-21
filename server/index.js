@@ -38,13 +38,15 @@ app.use(express.json({ limit: '16kb' }));
 
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  // `frame-ancestors` replaces X-Frame-Options: the game may be embedded by
+  // its own origin and by HTTPS hosts (preview proxies, hosting dashboards).
   res.setHeader(
     'Content-Security-Policy',
     "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; " +
-    "script-src 'self'; connect-src 'self' ws: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'"
+    "script-src 'self'; connect-src 'self' ws: wss:; font-src 'self' data:; object-src 'none'; " +
+    "base-uri 'self'; frame-ancestors 'self' https:"
   );
   next();
 });
