@@ -1,0 +1,27 @@
+# Render blueprint — one click deploy of BlobBrawl.io
+# New → Blueprint → connect this repository.
+services:
+  - type: web
+    name: blobbrawl-io
+    runtime: node
+    plan: starter
+    buildCommand: npm ci --omit=dev
+    startCommand: node server/index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SECRET
+        generateValue: true
+      - key: TRUST_PROXY
+        value: "1"
+      - key: MAX_ROOMS
+        value: "4"
+      - key: ROOM_CAPACITY
+        value: "40"
+      - key: DB_PATH
+        value: /var/data/blobbrawl.db
+    disk:
+      name: blobbrawl-data
+      mountPath: /var/data
+      sizeGB: 1
